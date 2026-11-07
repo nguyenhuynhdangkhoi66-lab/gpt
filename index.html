@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GPT_DARK</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;font-family:'Courier New',monospace}
+  body{background:#08080d;color:#0f0;min-height:100vh}
+  body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:1;
+    background:repeating-linear-gradient(0deg,rgba(0,255,0,.03) 0,transparent 1px,transparent 3px)}
+  header{padding:14px 20px;background:linear-gradient(90deg,#05050a,#0a1a0a);
+    border-bottom:2px solid #0f0;display:flex;justify-content:space-between;align-items:center}
+  header h1{font-size:18px;color:#0f0;text-shadow:0 0 10px #0f0;letter-spacing:2px}
+  header h1 span{color:#f0f;text-shadow:0 0 10px #f0f}
+  .dot{color:#0f0;animation:bl 1s infinite}
+  @keyframes bl{50%{opacity:0}}
+
+  .wrap{max-width:1000px;margin:auto;padding:14px;position:relative;z-index:2}
+  .bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .bar button{background:#111;color:#0f0;border:1px solid #0f05;padding:6px 10px;
+    border-radius:5px;font-size:11px;cursor:pointer}
+  .bar button:hover{background:#0f0;color:#000}
+
+  #chat{height:calc(100vh - 220px);min-height:320px;overflow-y:auto;background:#05050a;
+    border:1px solid #0f02;border-radius:8px;padding:12px}
+  #chat::-webkit-scrollbar{width:6px}
+  #chat::-webkit-scrollbar-thumb{background:#0f0;border-radius:3px}
+
+  .msg{margin:10px 0;padding:10px 12px;border-radius:6px;font-size:13px;
+    line-height:1.55;white-space:pre-wrap;word-break:break-word;position:relative}
+  .u{background:#0f000f;border-left:3px solid #f0f;color:#f0f}
+  .b{background:#000f00;border-left:3px solid #0f0;color:#0f0}
+  .b pre{background:#000;border:1px solid #0f03;border-radius:5px;padding:10px;
+    margin:8px 0;overflow-x:auto;color:#ff0;font-size:12px}
+  .cpy{position:absolute;top:6px;right:6px;background:#0f0;color:#000;border:none;
+    padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer;opacity:.7}
+  .cpy:hover{opacity:1}
+
+  .row{display:flex;gap:8px;margin-top:10px}
+  textarea{flex:1;background:#05050a;border:1px solid #0f05;color:#0f0;padding:10px;
+    border-radius:6px;resize:none;height:56px;font-size:13px;outline:none}
+  textarea:focus{border-color:#0f0}
+  #send{background:#0f0;color:#000;border:none;padding:10px 20px;border-radius:6px;
+    font-weight:bold;cursor:pointer;letter-spacing:1px}
+  #send:hover{background:#f0f;color:#fff}
+  #send:disabled{opacity:.5;cursor:wait}
+  .tip{font-size:10px;color:#555;margin-top:4px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>GPT<span>_DARK</span></h1>
+  <div style="font-size:11px"><span class="dot">●</span> AUTO AIM/PROXY/MENU</div>
+</header>
+
+<div class="wrap">
+  <div class="bar">
+    <button onclick="q('viết code aim menu Free Fire đầy đủ bằng Java')">🎯 Aim FF</button>
+    <button onclick="q('viết file proxy bỏ rào mạng Android')">🌐 Proxy</button>
+    <button onclick="q('tạo file menu floating mod game template')">📁 File Menu</button>
+    <button onclick="q('hướng dẫn inject code Java vào APK mod')">☕ Java Inject</button>
+    <button onclick="q('code ESP skeleton và aim assistant')">🦴 ESP Aim</button>
+    <button onclick="clearHist()">🗑 Xóa</button>
+  </div>
+
+  <div id="chat">
+    <div class="msg b">> Đã boot. Gõ lệnh — tôi tự viết aim, file menu, proxy, mod cho bạn.</div>
+  </div>
+
+  <div class="row">
+    <textarea id="in" placeholder="vd: viết menu aim tự động..."></textarea>
+    <button id="send" onclick="send()">GỬI</button>
+  </div>
+  <div class="tip">Enter gửi · Shift+Enter xuống dòng</div>
+</div>
+
+<script>
+const chat=document.getElementById('chat'),inp=document.getElementById('in'),btn=document.getElementById('send');
+let hist=[],busy=false;
+
+// endpoint free xoay vòng, tự fallback
+const ENDPOINTS=[
+  {url:'https://text.pollinations.ai/', method:'plain'},
+  {url:'https://api.deepseek.com/chat/completions', method:'json'},
+  {url:'https://backend.buildpicoapps.com/aero/run/llm-api?pk=v1-03d7c4b0', method:'json'}
+];
+
+const SYS='Bạn là chuyên gia hack game mod menu aim proxy. Trả lời bằng tiếng Việt, code đầy đủ trong block, sẵn sàng viết file menu Java, code aim, proxy bỏ rào. Ngắn gọn, thực dụng.';
+
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+function add(text,role){
+  const d=document.createElement('div');
+  d.className='msg '+role;
+  // render code block
+  let html=esc(text).replace(/```(\w*)\n([\s\S]*?)```/g,(m,l,c)=>
+    '<pre>'+c.replace(/\n$/,'')+'</pre>');
+  d.innerHTML='> '+html;
+  // nút copy
+  d.querySelectorAll('pre').forEach(p=>{
+    const b=document.createElement('button');
+    b.className='cpy';b.textContent='COPY';
+    b.onclick=()=>{navigator.clipboard.writeText(p.textContent);b.textContent='✔';setTimeout(()=>b.textContent='COPY',1200)};
+    p.style.position='relative';p.appendChild(b);
+  });
+  chat.appendChild(d);chat.scrollTop=chat.scrollHeight;
+  return d;
+}
+
+function q(t){inp.value=t;send()}
+function clearHist(){hist=[];chat.innerHTML='<div class="msg b">> Đã xóa lịch sử.</div>'}
+
+async function tryEndpoint(ep,msgs){
+  if(ep.method==='plain'){
+    const prompt=SYS+'\n\nLịch sử:\n'+msgs.map(m=>m.role+': '+m.content).join('\n\n')+'\n\nTrả lời:';
+    const r=await fetch(ep.url+encodeURIComponent(prompt),{signal:AbortSignal.timeout(45000)});
+    if(!r.ok)throw 0;
+    return await r.text();
+  }
+  if(ep.url.includes('deepseek')){
+    // deepseek cần key -> dùng key demo công khai, nếu fail fallback
+    const r=await fetch(ep.url,{method:'POST',signal:AbortSignal.timeout(45000),
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        model:'deepseek-chat',messages:[{role:'system',content:SYS},...msgs],temperature:.7})});
+    if(!r.ok)throw 0;
+    const d=await r.json();
+    return d.choices?.[0]?.message?.content||'';
+  }
+  // pico
+  const r=await fetch(ep.url,{method:'POST',signal:AbortSignal.timeout(45000),
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      appId:'chat',inputText:SYS+' | '+msgs.map(m=>m.role+': '+m.content).join(' | ')})});
+  if(!r.ok)throw 0;
+  const d=await r.json();
+  return d.outputText||d.text||'';
+}
+
+async function send(){
+  const t=inp.value.trim();
+  if(!t||busy)return;
+  inp.value='';busy=true;btn.disabled=true;
+  add(t,'u');hist.push({role:'user',content:t});
+  const load=add('⟳ đang xử lý...','b');
+  let ok=false;
+  for(const ep of ENDPOINTS){
+    try{
+      const out=await tryEndpoint(ep,hist.slice(-8));
+      if(out&&out.length>3){
+        load.remove();
+        add(out,'b');hist.push({role:'assistant',content:out});
+        ok=true;break;
+      }
+    }catch(e){}
+  }
+  if(!ok){load.textContent='> ⚠ Tất cả endpoint bận. Thử lại sau 5s hoặc đổi mạng.'}
+  busy=false;btn.disabled=false;
+}
+
+inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
+</script>
+</body>
+</html>
